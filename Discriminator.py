@@ -1,5 +1,7 @@
 import torch
 
+class DisConvolutionalBlock(torch.nn.Module):
+    pass
 
 class Discriminator(torch.nn.Module):
 
@@ -22,7 +24,7 @@ class Discriminator(torch.nn.Module):
 
             # create the remaining layers
             for i in range(self.depth - 1):
-                layer = ConvolutionalBlock()
+                layer = DisConvolutionalBlock()
                 # TODO rgb
                 self.layers.append(layer)
                 # self.rgb_to_features.append(rgb)
