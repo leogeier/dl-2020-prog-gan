@@ -1,14 +1,41 @@
 import torch
+from torch.nn import LeakyReLU
 from torch.nn.functional import interpolate
 from EqualizedConv2d import EqualizedConv2d
 
+
 class GenInitialBlock(torch.nn.Module):
+    """
+    Initial block of generator. Consisting of the following layers:
+
+    input: latent noise vector (latent_size x 1 x 1)
+
+    layer               activation       output shape
+    Convolution 4 x 4   LeakyReLU        latent_size x 4 x 4
+    Convolution 3 x 3   LeakyReLU        latent_size x 4 x 4
+
+    output: image with latent_size channels (latent_size x 4 x 4)
+    """
 
     def __init__(self, latent_size):
-        self.bias = torch.nn.Parameter(torch.FloatTensor(latent_size).fill_(0))
+        """
+        :param latent_size: size of noise input for generator
+        """
+        super().__init__()
+
+        self.layers = torch.nn.ModuleList([
+            EqualizedDeconv2d(in_channels=latent_size, out_channels=latent_size, kernel_size=(4, 4)),
+            EqualizedConv2d(in_channels=latent_size, out_channels=latent_size, kernel_size=(3, 3), padding=1)
+        ])
+
+        self.pixel_normalization = PixelwiseNorm()
+        self.activation = LeakyReLU(negative_slope=0.2)
 
     def forward(self, x):
-        return x * self.bias
+        # add two dimensions: latent_size --> latent_size x 1 x 1
+        y = torch.unsqueeze(torch.unsqueeze(x, -1), -1)
+
+
 
 class GenConvolutionalBlock(torch.nn.Module):
 
@@ -17,6 +44,7 @@ class GenConvolutionalBlock(torch.nn.Module):
 
     def forward(self, x):
         return x * self.bias
+
 
 class Generator(torch.nn.Module):
 
@@ -46,9 +74,9 @@ class Generator(torch.nn.Module):
                 rgb = self.__toRGB(self.latent_size)
             else:
                 layer = GenConvolutionalBlock(
-                        int(self.latent_size // (2 ** i - 3)),
-                        int(self.latent_size // (2 ** i - 2)),
-                    )
+                    int(self.latent_size // (2 ** i - 3)),
+                    int(self.latent_size // (2 ** i - 2)),
+                )
                 rgb = self.__toRGB(int(self.latent_size // (2 ** i - 2)))
 
             self.layers.append(layer)
