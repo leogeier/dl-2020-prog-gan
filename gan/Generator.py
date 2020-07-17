@@ -24,7 +24,7 @@ class GenInitialBlock(torch.nn.Module):
         """
         super(GenInitialBlock, self).__init__()
 
-        self.layer1 = EqualizedDeconv2d(in_channels=latent_size, out_channels=latent_size, kernel_size=(4, 4)),
+        self.layer1 = EqualizedDeconv2d(in_channels=latent_size, out_channels=latent_size, kernel_size=(4, 4))
         self.layer2 = EqualizedConv2d(in_channels=latent_size, out_channels=latent_size, kernel_size=(3, 3), padding=1)
 
         self.pixel_normalization = PixelwiseNormalization()
