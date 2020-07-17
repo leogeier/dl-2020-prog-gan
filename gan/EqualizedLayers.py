@@ -117,4 +117,4 @@ class PixelwiseNormalization(torch.nn.Module):
         :param eps: small constant to avoid division by zero
         :return:
         """
-        return x / sqrt((x.pow(2) + eps).mean(dim=1, keepdim=True))
+        return x / x.pow(2).mean(dim=1, keepdim=True).add(eps).sqrt()
