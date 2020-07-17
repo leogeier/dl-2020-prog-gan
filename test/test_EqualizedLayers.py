@@ -1,6 +1,6 @@
 import torch
 
-from gan.EqualizedLayers import PixelwiseNormalization, EqualizedConv2d, EqualizedDeconv2d, EqualizedLinear
+from gan.EqualizedLayers import PixelwiseNormalization, EqualizedConv2d, EqualizedDeconv2d
 
 
 def test_pixnorm():
