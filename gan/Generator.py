@@ -2,7 +2,7 @@ import torch
 from torch.nn import LeakyReLU
 from torch.nn.functional import interpolate
 
-from EqualizedLayers import PixelwiseNormalization, EqualizedDeconv2d, EqualizedConv2d
+from gan.EqualizedLayers import EqualizedConv2d, EqualizedDeconv2d, PixelwiseNormalization
 
 
 class GenInitialBlock(torch.nn.Module):
@@ -22,7 +22,7 @@ class GenInitialBlock(torch.nn.Module):
         """
         :param latent_size: size of noise input for generator
         """
-        super().__init__()
+        super(GenInitialBlock, self).__init__()
 
         self.layer1 = EqualizedDeconv2d(in_channels=latent_size, out_channels=latent_size, kernel_size=(4, 4)),
         self.layer2 = EqualizedConv2d(in_channels=latent_size, out_channels=latent_size, kernel_size=(3, 3), padding=1)
