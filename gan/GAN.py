@@ -3,10 +3,10 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 import torchvision
 
-from Discriminator import Discriminator
-from Generator import Generator
-from Loss import Loss
-from CelebA import CelebA
+from gan.Discriminator import Discriminator
+from gan.Generator import Generator
+from gan.Loss import Loss
+from gan.CelebA import CelebA
 
 import sys
 

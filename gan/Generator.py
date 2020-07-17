@@ -31,7 +31,7 @@ class GenInitialBlock(torch.nn.Module):
         self.activation = LeakyReLU(negative_slope=0.2)
 
     def forward(self, x):
-        # add two dimensions: latent_size --> latent_size x 1 x 1
+        # add two dimensions: latent_size --> (latent_size x 1 x 1)
         y = torch.unsqueeze(torch.unsqueeze(x, -1), -1)
 
         y = self.activation(self.layer1(y))
