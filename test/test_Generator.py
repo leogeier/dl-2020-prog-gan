@@ -1,6 +1,6 @@
 import torch
 
-from Generator import GenInitialBlock
+from gan.Generator import GenInitialBlock
 
 
 def test_shape():

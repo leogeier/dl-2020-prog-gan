@@ -3,6 +3,7 @@ import torch
 class DisConvolutionalBlock(torch.nn.Module):
     pass
 
+# TODO: Rename to critic
 class Discriminator(torch.nn.Module):
 
         def __init__(self, depth, feature_size):

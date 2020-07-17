@@ -1,3 +1,4 @@
+import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 import torchvision
@@ -38,12 +39,13 @@ class GAN:
         ds_real_samples = nn.AvgPool2d(down_sample_factor)(real_batch)
 
         if current_depth > 0:
-            prior_ds_real_samples = nn.functional.interpolate(AvgPool2d(prior_downsample_factor)(real_batch), scale_factor=2)
+            prior_ds_real_samples = nn.functional.interpolate(AvgPool2d(prior_downsample_factor)(real_batch),
+                                                              scale_factor=2)
         else:
             prior_ds_real_samples = ds_real_samples
 
         return (alpha * ds_real_samples) + ((1 - alpha) * prior_ds_real_samples)
-        
+
     def optimize_discriminator(self, noise_batch, real_batch, current_depth, alpha):
         real_samples = self.__progressive_downsampling(real_batch, current_depth, alpha)
 
@@ -59,7 +61,7 @@ class GAN:
     def optimize_generator(self, noise_batch, real_batch, current_depth, alpha):
         real_samples = self.__progressive_downsampling(real_batch, current_depth, alpha)
 
-        fake_samples = self.gen(noise, current_depth, alpha)
+        fake_samples = self.gen(noise_batch, current_depth, alpha)
         loss = self.loss.generator_loss(real_samples, fake_samples, current_depth, alpha)
 
         self.generator_optimizer.zero_grad()
@@ -77,7 +79,7 @@ class GAN:
             print("Currently on depth {} ({} x {})".format(current_depth, resolution, resolution))
 
             dataloader = DataLoader(dataset, batch_size_per_depth[current_depth], shuffle=True, pin_memory=True)
-            
+
             total_steps = 1
             batches_count = len(dataloader)
             fader_point = int(fade_in_epoch_ratios[current_depth] * epochs_per_depth[current_depth] * batches_count)
@@ -90,15 +92,16 @@ class GAN:
 
                     images = batch.to(self.device)
                     noise = torch.randn(images.shape[0], self.latent_size).to(self.device)
-                    
+
                     self.optimize_discriminator(noise, images, current_depth, alpha)
                     self.optimize_generator(noise, images, current_depth, alpha)
 
                     total_steps += 1
         print("Training ended")
 
+
 if __name__ == "__main__":
-    if (len(sys.argv) < 5):
+    if len(sys.argv) < 5:
         print("Usage: {} [dataset root] [depth] [latent size] [learning rate]".format(sys.argv[0]))
         sys.exit(1)
 
@@ -109,8 +112,6 @@ if __name__ == "__main__":
     epochs_per_depth = None
     batch_size_per_depth = None
     fade_in_epoch_ratios = None
-
-
 
     gan = GAN(depth, latent_size, learning_rate, "cuda")
     gan.train(dataset, epochs, batch_sizes, fade_in_percentage)

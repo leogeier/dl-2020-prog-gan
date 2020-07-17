@@ -1,7 +1,8 @@
 import torch
 from torch.nn import LeakyReLU
 from torch.nn.functional import interpolate
-from EqualizedConv2d import EqualizedConv2d
+
+from EqualizedLayers import PixelwiseNormalization, EqualizedDeconv2d, EqualizedConv2d
 
 
 class GenInitialBlock(torch.nn.Module):
@@ -23,18 +24,20 @@ class GenInitialBlock(torch.nn.Module):
         """
         super().__init__()
 
-        self.layers = torch.nn.ModuleList([
-            EqualizedDeconv2d(in_channels=latent_size, out_channels=latent_size, kernel_size=(4, 4)),
-            EqualizedConv2d(in_channels=latent_size, out_channels=latent_size, kernel_size=(3, 3), padding=1)
-        ])
+        self.layer1 = EqualizedDeconv2d(in_channels=latent_size, out_channels=latent_size, kernel_size=(4, 4)),
+        self.layer2 = EqualizedConv2d(in_channels=latent_size, out_channels=latent_size, kernel_size=(3, 3), padding=1)
 
-        self.pixel_normalization = PixelwiseNorm()
+        self.pixel_normalization = PixelwiseNormalization()
         self.activation = LeakyReLU(negative_slope=0.2)
 
     def forward(self, x):
         # add two dimensions: latent_size --> latent_size x 1 x 1
         y = torch.unsqueeze(torch.unsqueeze(x, -1), -1)
 
+        y = self.activation(self.layer1(y))
+        y = self.activation(self.layer2(y))
+
+        return self.pixel_normalization(y)
 
 
 class GenConvolutionalBlock(torch.nn.Module):
