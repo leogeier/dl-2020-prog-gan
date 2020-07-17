@@ -77,30 +77,6 @@ class EqualizedDeconv2d(torch.nn.Module):
                                 padding=self.padding)
 
 
-class EqualizedLinear(torch.nn.Module):
-    """
-    Linear layer using equalized learning rate. See EqualizedConv2d.
-    """
-
-    def __init__(self, in_channels, out_channels):
-        """
-        Linear layer modified for equalized learning rate
-        """
-        super(EqualizedLinear, self).__init__()
-
-        self.weight = torch.nn.Parameter(torch.randn(out_channels, in_channels))
-
-        self.bias = torch.nn.Parameter(torch.zeros(out_channels))
-
-        fan_in = in_channels
-        self.scale = sqrt(2) / sqrt(fan_in)
-
-    def forward(self, x):
-        return linear(input=x,
-                      weight=self.weight * self.scale,
-                      bias=self.bias)
-
-
 class PixelwiseNormalization(torch.nn.Module):
     """
     Normalize feature vectors per pixel as suggested in section 4.2 of
