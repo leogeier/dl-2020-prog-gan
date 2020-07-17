@@ -31,7 +31,12 @@ class GenInitialBlock(torch.nn.Module):
         self.activation = LeakyReLU(negative_slope=0.2)
 
     def forward(self, x):
-        # add two dimensions: latent_size --> (latent_size x 1 x 1)
+        """
+        :param x: input noise (batch_size x latent_size)
+        :return:
+        """
+        # add image width and height dimensions:
+        # (batch_size x latent_size) --> (batch_size x latent_size x 1 x 1)
         y = torch.unsqueeze(torch.unsqueeze(x, -1), -1)
 
         y = self.activation(self.layer1(y))
@@ -41,24 +46,45 @@ class GenInitialBlock(torch.nn.Module):
 
 
 class GenConvolutionalBlock(torch.nn.Module):
+    """
+    Regular block of generator. Consisting of following layers:
+
+    input: image (in_channels x img_width x img_height)
+
+    layer               activation       output shape
+    Upsampling          -                in_channels x 2*img_width x 2*img_height
+    Convolution 3 x 3   LeakyReLU        out_channels x 2*img_width x 2*img_height
+    Convolution 3 x 3   LeakyReLU        out_channels x 2*img_width x 2*img_height
+
+    output: image with latent_size channels and doubled size (out_channels x 2*img_width x 2*img_height)
+    """
 
     def __init__(self, in_channels, out_channels):
-        self.bias = torch.nn.Parameter(torch.FloatTensor(out_channels).fill_(0))
+        super(GenConvolutionalBlock, self).__init__()
+
+        self.upsample = lambda x: interpolate(x, scale_factor=2)
+        self.layer1 = EqualizedConv2d(in_channels, out_channels, kernel_size=(3, 3), padding=1)
+        self.layer2 = EqualizedConv2d(out_channels, out_channels, kernel_size=(3, 3), padding=1)
+
+        self.pixel_normalization = PixelwiseNormalization()
+        self.activation = LeakyReLU(negative_slope=0.2)
 
     def forward(self, x):
-        return x * self.bias
+        y = self.upsample(x)
+        y = self.pixel_normalization(self.activation(self.layer1(y)))
+        y = self.pixel_normalization(self.activation(self.layer2(y)))
+        return y
 
 
 class Generator(torch.nn.Module):
 
     @staticmethod
-    def __toRGB(in_channels):
+    def __to_rgb(in_channels):
         return EqualizedConv2d(in_channels, 3, (1, 1))
 
     def __init__(self, depth, latent_size):
         """
-
-        :param depth: depth of the GAN, i.e. number of layers
+        :param depth: depth of the GAN, i.e. number of blocks (initial + convolutional)
         :param latent_size: size of input noise for the generator
         """
         super(Generator, self).__init__()
@@ -67,35 +93,44 @@ class Generator(torch.nn.Module):
         self.latent_size = latent_size
 
         self.initial_block = GenInitialBlock(self.latent_size)
-        self.layers = torch.nn.ModuleList([])
+        self.blocks = torch.nn.ModuleList([])
 
-        self.rgb_converters = torch.nn.ModuleList([self.__toRGB(self.latent_size)])
+        # hold an rgb converter for every intermediate resolution to visualize intermediate results
+        self.rgb_converters = torch.nn.ModuleList([self.__to_rgb(self.latent_size)])
 
         for i in range(self.depth - 1):
             if i < 3:
-                layer = GenConvolutionalBlock(self.latent_size, self.latent_size)
-                rgb = self.__toRGB(self.latent_size)
+                # first three blocks do not reduce the number of channels
+                block = GenConvolutionalBlock(self.latent_size, self.latent_size)
+                rgb = self.__to_rgb(self.latent_size)
             else:
-                layer = GenConvolutionalBlock(
-                    int(self.latent_size // (2 ** i - 3)),
-                    int(self.latent_size // (2 ** i - 2)),
+                # half number of channels in each block
+                block = GenConvolutionalBlock(
+                    self.latent_size // pow(2, i - 3),
+                    self.latent_size // pow(2, i - 2)
                 )
-                rgb = self.__toRGB(int(self.latent_size // (2 ** i - 2)))
+                rgb = self.__to_rgb(self.latent_size // pow(2, i - 2))
 
-            self.layers.append(layer)
+            self.blocks.append(block)
             self.rgb_converters.append(rgb)
 
     def forward(self, x, current_depth, alpha):
+        """
+        :param x: input noise (batch_size x latent_size)
+        :param current_depth: depth at which to evaluate (maximum depth of the forward pass)
+        :param alpha: interpolation between current depth output (alpha) and previous depth output (1 - alpha)
+        :return:
+        """
         y = self.initial_block(x)
 
         if current_depth == 0:
             return self.rgb_converters[0](y)
 
-        for block in self.layers[:current_depth - 1]:
+        for block in self.blocks[:current_depth - 1]:
             y = block(y)
 
         residual = self.rgb_converters[current_depth - 1](interpolate(y, scale_factor=2))
-        straight = self.rgb_converters[current_depth](self.layers[current_depth - 1](y))
+        straight = self.rgb_converters[current_depth](self.blocks[current_depth - 1](y))
 
         # fade in new layer
         return (alpha * straight) + ((1 - alpha) * residual)
