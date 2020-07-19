@@ -1,6 +1,6 @@
 import torch
 from torch.nn.modules.utils import _pair
-from torch.nn.functional import conv2d, conv_transpose2d, linear
+from torch.nn.functional import conv2d, conv_transpose2d
 from numpy import prod, sqrt
 
 
@@ -75,22 +75,3 @@ class EqualizedDeconv2d(torch.nn.Module):
                                 bias=self.bias,
                                 stride=self.stride,
                                 padding=self.padding)
-
-
-class PixelwiseNormalization(torch.nn.Module):
-    """
-    Normalize feature vectors per pixel as suggested in section 4.2 of
-    https://research.nvidia.com/sites/default/files/pubs/2017-10_Progressive-Growing-of/karras2018iclr-paper.pdf.
-    For each pixel location (i,j) in the input image, takes the vector across all channels and normalizes it to
-    unit length.
-    """
-    def __init__(self):
-        super(PixelwiseNormalization, self).__init__()
-
-    def forward(self, x, eps=1e-8):
-        """
-        :param x: input with shape (batch_size x num_channels x img_width x img_height)
-        :param eps: small constant to avoid division by zero
-        :return:
-        """
-        return x / x.pow(2).mean(dim=1, keepdim=True).add(eps).sqrt()

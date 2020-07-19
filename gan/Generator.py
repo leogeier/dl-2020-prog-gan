@@ -2,7 +2,26 @@ import torch
 from torch.nn import LeakyReLU
 from torch.nn.functional import interpolate
 
-from gan.EqualizedLayers import EqualizedConv2d, EqualizedDeconv2d, PixelwiseNormalization
+from gan.EqualizedLayers import EqualizedConv2d, EqualizedDeconv2d
+
+
+class PixelwiseNormalization(torch.nn.Module):
+    """
+    Normalize feature vectors per pixel as suggested in section 4.2 of
+    https://research.nvidia.com/sites/default/files/pubs/2017-10_Progressive-Growing-of/karras2018iclr-paper.pdf.
+    For each pixel location (i,j) in the input image, takes the vector across all channels and normalizes it to
+    unit length.
+    """
+    def __init__(self):
+        super(PixelwiseNormalization, self).__init__()
+
+    def forward(self, x, eps=1e-8):
+        """
+        :param x: input with shape (batch_size x num_channels x img_width x img_height)
+        :param eps: small constant to avoid division by zero
+        :return:
+        """
+        return x / x.pow(2).mean(dim=1, keepdim=True).add(eps).sqrt()
 
 
 class GenInitialBlock(torch.nn.Module):
@@ -84,7 +103,7 @@ class Generator(torch.nn.Module):
 
     def __init__(self, depth, latent_size):
         """
-        :param depth: depth of the GAN, i.e. number of blocks (initial + convolutional)
+        :param depth: depth of the generator, i.e. number of blocks (initial + convolutional)
         :param latent_size: size of input noise for the generator
         """
         super(Generator, self).__init__()
@@ -101,15 +120,15 @@ class Generator(torch.nn.Module):
         for i in range(self.depth - 1):
             if i < 3:
                 # first three blocks do not reduce the number of channels
-                block = GenConvolutionalBlock(self.latent_size, self.latent_size)
-                rgb = self.__to_rgb(self.latent_size)
+                in_channels = self.latent_size
+                out_channels = self.latent_size
             else:
                 # half number of channels in each block
-                block = GenConvolutionalBlock(
-                    self.latent_size // pow(2, i - 3),
-                    self.latent_size // pow(2, i - 2)
-                )
-                rgb = self.__to_rgb(self.latent_size // pow(2, i - 2))
+                in_channels = self.latent_size // pow(2, i - 3)
+                out_channels = self.latent_size // pow(2, i - 2)
+
+            block = GenConvolutionalBlock(in_channels, out_channels)
+            rgb = self.__to_rgb(out_channels)
 
             self.blocks.append(block)
             self.rgb_converters.append(rgb)
@@ -133,4 +152,4 @@ class Generator(torch.nn.Module):
         straight = self.rgb_converters[current_depth](self.blocks[current_depth - 1](y))
 
         # fade in new layer
-        return (alpha * straight) + ((1 - alpha) * residual)
+        return alpha * straight + (1 - alpha) * residual
