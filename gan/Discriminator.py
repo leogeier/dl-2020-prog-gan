@@ -1,40 +1,133 @@
 import torch
+from torch.nn import LeakyReLU, AvgPool2d
+
+from gan.EqualizedLayers import EqualizedConv2d
+
+
+class MinibatchStdDev(torch.nn.Module):
+    """
+    Concatenate a constant statistic calculated across the minibatch to each pixel location (i, j) as a new channel.
+    Here the standard deviation averaged over channels and locations. This is to increase variation of images produced
+    by the generator. (see section 3)
+    https://research.nvidia.com/sites/default/files/pubs/2017-10_Progressive-Growing-of/karras2018iclr-paper.pdf
+    """
+    def __init__(self):
+        super(MinibatchStdDev, self).__init__()
+
+    def forward(self, x, eps=1e-8):
+        batch_size, _, img_width, img_height = x.shape
+
+        # subtract batch mean
+        y = x - x.mean(dim=0, keepdim=True)
+
+        # calculate stddev across batch
+        y = y.pow(2).mean(dim=0, keepdim=False).add(eps).sqrt()
+
+        # average over all channels and locations
+        y = y.mean().view(1, 1, 1, 1)
+
+        # replicate for every channel and location
+        y = y.repeat(batch_size, 1, img_width, img_height)
+
+        # append as new channel
+        return torch.cat([x, y], 1)
+
+
+class DisFinalBlock(torch.nn.Module):
+
+    def __init__(self, feature_size):
+        super(DisFinalBlock, self).__init__()
+
+        self.minibatch_std_dev = MinibatchStdDev()
+        self.layer1 = EqualizedConv2d(in_channels=feature_size + 1, out_channels=feature_size, kernel_size=(3, 3),
+                                      padding=1)
+        self.layer2 = EqualizedConv2d(in_channels=feature_size, out_channels=feature_size, kernel_size=(4, 4))
+        self.fully_connected = EqualizedConv2d(in_channels=feature_size, out_channels=1, kernel_size=(1, 1))
+        self.activation = LeakyReLU(negative_slope=0.2)
+
+    def forward(self, x):
+        y = self.minibatch_std_dev(x)
+
+        y = self.activation(self.layer1(y))
+        y = self.activation(self.layer2(y))
+
+        y = self.fully_connected(y)
+
+        return y.view(-1)
+
 
 class DisConvolutionalBlock(torch.nn.Module):
-    pass
+
+    def __init__(self, in_channels, out_channels):
+        super(DisConvolutionalBlock, self).__init__()
+
+        self.layer1 = EqualizedConv2d(in_channels, in_channels, kernel_size=(3, 3), padding=1)
+        self.layer2 = EqualizedConv2d(in_channels, out_channels, kernel_size=(3, 3), padding=1)
+
+        self.downsample = AvgPool2d(2)
+        self.activation = LeakyReLU(negative_slope=0.2)
+
+    def forward(self, x):
+        y = self.activation(self.layer1(x))
+        y = self.activation(self.layer2(y))
+        return self.downsample(y)
+
 
 # TODO: Rename to critic
 class Discriminator(torch.nn.Module):
 
-        def __init__(self, depth, feature_size):
+    @staticmethod
+    def __from_rgb(out_channels):
+        return EqualizedConv2d(in_channels=3, out_channels=out_channels, kernel_size=(1, 1))
+
+    def __init__(self, depth, feature_size):
+        """
+            :param depth: depth of the discriminator, i.e. number of blocks (must be equal to the generator depth)
+            :param feature_size: size of the deepest features extracted (must be equal to generator latent_size)
             """
-            :param depth: total height of the discriminator (Must be equal to the Generator depth)
-            :param feature_size: size of the deepest features extracted
-                                 (Must be equal to Generator latent_size)
-            """
-            super(Discriminator, self).__init__()
+        super(Discriminator, self).__init__()
 
-            # create state of the object
-            self.depth = depth
-            self.feature_size = feature_size
+        self.depth = depth
+        self.feature_size = feature_size
 
-            # TODO
-            self.final_block = None
+        self.final_block = DisFinalBlock(self.feature_size)
+        self.blocks = torch.nn.ModuleList([])
 
-            self.layers = torch.nn.ModuleList([])
+        self.rgb_to_features = torch.nn.ModuleList([self.__from_rgb(self.feature_size)])
+        self.downsample = torch.nn.AvgPool2d(2)
 
-            # create the remaining layers
-            for i in range(self.depth - 1):
-                layer = DisConvolutionalBlock()
-                # TODO rgb
-                self.layers.append(layer)
-                # self.rgb_to_features.append(rgb)
+        for i in range(self.depth - 1):
+            if i > 2:
+                in_channels = self.feature_size // pow(2, i - 2)
+                out_channels = self.feature_size // pow(2, i - 3)
+            else:
+                in_channels = self.feature_size
+                out_channels = self.feature_size
 
-        def forward(self, x, height, alpha):
-            """
+            block = DisConvolutionalBlock(in_channels, out_channels)
+            rgb = self.__from_rgb(in_channels)
+
+            self.blocks.append(block)
+            self.rgb_to_features.append(rgb)
+
+    def forward(self, x, current_depth, alpha):
+        """
             :param x: input to the network
-            :param height: current height of operation (Progressive GAN)
-            :param alpha: current value of alpha for fade-in
-            :return: out => raw prediction values (WGAN-GP)
+            :param current_depth: current height of operation
+            :param alpha: current interpolation value for fade-in
+            :return: raw prediction values
             """
-            pass
+        if current_depth == 0:
+            return self.rgb_to_features[0](x)
+
+        residual = self.rgb_to_features[current_depth - 1](self.downsample(x))
+        straight = self.blocks[current_depth - 1](self.rgb_to_features[current_depth](x))
+
+        y = alpha * straight + (1 - alpha) * residual
+
+        # TODO: reverse before?
+        for block in reversed(self.blocks[:current_depth - 1]):
+            y = block(y)
+            print(y.shape)
+
+        return self.final_block(y)
