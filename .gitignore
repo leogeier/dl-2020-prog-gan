@@ -1,4 +1,5 @@
-img_align_celeba
+img_align_celeba/
+celeba/
 
 .idea/
 *.swp
