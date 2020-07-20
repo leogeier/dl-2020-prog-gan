@@ -11,10 +11,11 @@ class CelebA(VisionDataset):
     base_folder = "celeba"
 
     def __init__(self, root="./", split="all", target_type="attr", transform=None,
-                 target_transform=None):
+                 target_transform=None, size=None):
         import pandas
         super(CelebA, self).__init__(root, transform=transform,
                                      target_transform=target_transform)
+
         self.split = split
         if isinstance(target_type, list):
             self.target_type = target_type
@@ -49,6 +50,7 @@ class CelebA(VisionDataset):
         self.attr = torch.as_tensor(attr[mask].values)
         self.attr = (self.attr + 1) // 2  # map from {-1, 1} to {0, 1}
         self.attr_names = list(attr.columns)
+        self.size = size if size else len(self.attr)
 
     def __getitem__(self, index):
         X = PIL.Image.open(os.path.join(self.root, self.base_folder, "img_align_celeba", self.filename[index]))
@@ -81,7 +83,7 @@ class CelebA(VisionDataset):
         return X, target
 
     def __len__(self):
-        return len(self.attr)
+        return self.size
 
     def extra_repr(self):
         lines = ["Target type: {target_type}", "Split: {split}"]
