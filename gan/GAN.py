@@ -1,18 +1,15 @@
 import datetime
 import os
-import sys
 import time
-from math import sqrt, log
+from math import sqrt
 
 import torch
-import torchvision
 from torch.nn import AvgPool2d
 from torch.nn.functional import interpolate
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 
-from gan.CelebA import CelebA
 from gan.Discriminator import Discriminator
 from gan.Generator import Generator
 from gan.Loss import WassersteinLoss
@@ -25,7 +22,7 @@ class GAN:
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, "loss_" + str(current_depth) + ".log")
         with open(log_file, "a") as gan_log:
-            gan_log.write(str(current_batch) + "\tDis: " + str(dis_loss) + "\tGen: " + str(gen_loss) + "\n")
+            gan_log.write(str(current_batch) + "\t" + str(dis_loss) + "\t" + str(gen_loss) + "\n")
 
     def __init__(self, depth, latent_size, lr, device):
         """
@@ -133,11 +130,6 @@ class GAN:
         :param sample_dir: directory for storing sample images
         :param model_dir: directory for storing the trained models
         """
-        assert dataset[0].shape[-1] == dataset[0].shape[-2], "Image size is not square"
-        assert log(dataset[0].shape[-1], 2).is_integer(), "Image size is not a power of two"
-        assert 4 * pow(2, self.depth - 1) == dataset[0].shape[-1], \
-            "Depth and image size are not compatible"
-
         self.generator.train()
         self.discriminator.train()
 
@@ -163,7 +155,7 @@ class GAN:
             for epoch in range(1, epochs_per_depth[current_depth] + 1):
                 print("Epoch ", epoch)
 
-                for i, batch in enumerate(dataloader, 1):
+                for i, (batch, _) in enumerate(dataloader, 1):
                     alpha = total_steps / fader_point if total_steps <= fader_point else 1
 
                     images = batch.to(self.device)
@@ -187,20 +179,3 @@ class GAN:
         self.generator.eval()
         self.discriminator.eval()
         print("Training finished.")
-
-
-if __name__ == "__main__":
-    if len(sys.argv) < 5:
-        print("Usage: {} [dataset root] [depth] [latent size] [learning rate]".format(sys.argv[0]))
-        sys.exit(1)
-
-    dataset = CelebA(sys.argv[1], transform=torchvision.transforms.ToTensor())
-    depth = int(sys.argv[2])
-    latent_size = int(sys.argv[3])
-    learning_rate = float(sys.argv[4])
-    epochs_per_depth = None
-    batch_size_per_depth = None
-    fade_in_epoch_ratios = None
-
-    gan = GAN(depth, latent_size, learning_rate, "cuda")
-    gan.train(dataset, epochs, batch_sizes, fade_in_percentage)
