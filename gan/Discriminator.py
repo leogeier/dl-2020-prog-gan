@@ -128,6 +128,5 @@ class Discriminator(torch.nn.Module):
         # TODO: reverse before?
         for block in reversed(self.blocks[:current_depth - 1]):
             y = block(y)
-            print(y.shape)
 
         return self.final_block(y)
