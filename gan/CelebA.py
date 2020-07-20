@@ -1,10 +1,11 @@
+import os
+from functools import partial
+
+import PIL
 import torch
-import torchvision
 from torchvision.datasets import VisionDataset
 from torchvision.datasets.utils import verify_str_arg
-from functools import partial
-import PIL
-import os
+
 
 class CelebA(VisionDataset):
     base_folder = "celeba"
