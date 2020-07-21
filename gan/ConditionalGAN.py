@@ -24,16 +24,7 @@ class ConditionalGAN:
         with open(log_file, "a") as gan_log:
             gan_log.write(str(current_batch) + "\t" + str(dis_loss) + "\t" + str(gen_loss) + "\n")
 
-    @staticmethod
-    def __save_attribute_info(sample_dir, attributes):
-        # TODO
-        os.makedirs(sample_dir, exist_ok=True)
-        attr_file = os.path.join(sample_dir, "attributes.txt")
-        with open(attr_file, "w") as file:
-            for attr in attributes:
-                file.write(str(attr) + "\n")
-
-    def __init__(self, num_attributes, depth, latent_size, lr, device):
+    def __init__(self, num_attributes, depth, latent_size, lr, device, attributes_dict):
         """
         :param num_attributes: number of different attribute labels of images
         :param depth: depth of the GAN, i.e. number of layers
@@ -41,6 +32,7 @@ class ConditionalGAN:
         :param lr: learning rate for the optimizer
         :param device: device to run on (cpu or gpu)
         """
+        self.attributes_dict = attributes_dict
         self.num_attributes = num_attributes
         self.depth = depth
         self.latent_size = latent_size
@@ -104,6 +96,14 @@ class ConditionalGAN:
 
         return loss.item()
 
+    def __save_attribute_info(self, sample_dir, attributes):
+        os.makedirs(sample_dir, exist_ok=True)
+        attr_file = os.path.join(sample_dir, "attributes.txt")
+        with open(attr_file, "w") as file:
+            file.write(", ".join([a[1] for a in sorted(self.attributes_dict.items())]) + "\n")
+            for i, attr in enumerate(attributes):
+                file.write(str(i) + ": " + ", ".join([str(a.item()) for a in attr]) + "\n")
+
     def __save_samples(self, sample_dir, fixed_input, current_depth, current_epoch, current_batch, alpha):
         os.makedirs(sample_dir, exist_ok=True)
         img_file = os.path.join(sample_dir,
@@ -125,6 +125,10 @@ class ConditionalGAN:
         torch.save(self.discriminator.state_dict(), dis_file)
         torch.save(self.generator_optimizer.state_dict(), gen_optim_file)
         torch.save(self.discriminator_optimizer.state_dict(), dis_optim_file)
+
+    def __select_attributes(self, input_attributes):
+        sel_attr_indices = torch.LongTensor([list(self.attributes_dict.keys())])
+        return input_attributes.gather(dim=1, index=sel_attr_indices.expand(input_attributes.shape[0], -1))
 
     def train(self, dataset, epochs_per_depth, batch_size_per_depth, fade_in_ratios, start_depth=0,
               log_frequency=100, num_samples=16, log_dir="./logs", sample_dir="./samples", model_dir="./models"):
@@ -149,6 +153,7 @@ class ConditionalGAN:
         temp_dataloader = DataLoader(dataset, num_samples, shuffle=False)
         temp_iterator = iter(temp_dataloader)
         _, some_attributes = next(temp_iterator)
+        some_attributes = self.__select_attributes(some_attributes)
         fixed_attributes = some_attributes.view(num_samples, -1).to(self.device)
         fixed_images = torch.randn(num_samples, self.latent_size - self.num_attributes).to(self.device)
         # concatenated for generator. using projection for discriminator. see below
@@ -178,7 +183,7 @@ class ConditionalGAN:
                     alpha = total_steps / fader_point if total_steps <= fader_point else 1
 
                     images = images.to(self.device)
-                    attributes = attributes.view(images.shape[0], -1)
+                    attributes = self.__select_attributes(attributes.view(images.shape[0], -1))
 
                     noise = torch.randn(images.shape[0], self.latent_size - self.num_attributes).to(self.device)
                     # Noise and attributes are concatenated for the generator.

@@ -19,7 +19,7 @@ if __name__ == "__main__":
         torchvision.transforms.CenterCrop(appropriate_size),
         torchvision.transforms.ToTensor()
     ])
-    dataset = CelebA(root=sys.argv[1], split="all", transform=transform)
+    dataset = CelebA(root=sys.argv[1], split="all", transform=transform, size=13948)
 
     print("Using data with image format {}".format(dataset[0][0].shape))
 
