@@ -150,7 +150,7 @@ class ConditionalGAN:
         global_time = time.time()
 
         # input for consistent samples during training
-        temp_dataloader = DataLoader(dataset, num_samples, shuffle=False)
+        temp_dataloader = DataLoader(dataset, num_samples, shuffle=True)
         temp_iterator = iter(temp_dataloader)
         _, some_attributes = next(temp_iterator)
         some_attributes = self.__select_attributes(some_attributes)
@@ -184,9 +184,6 @@ class ConditionalGAN:
 
                     images = images.to(self.device)
                     attributes = self.__select_attributes(attributes.view(images.shape[0], -1))
-
-                    print(images[0], attributes[0])
-                    assert False
 
                     noise = torch.randn(images.shape[0], self.latent_size - self.num_attributes).to(self.device)
                     # Noise and attributes are concatenated for the generator.
