@@ -185,6 +185,9 @@ class ConditionalGAN:
                     images = images.to(self.device)
                     attributes = self.__select_attributes(attributes.view(images.shape[0], -1))
 
+                    print(images[0], attributes[0])
+                    assert False
+
                     noise = torch.randn(images.shape[0], self.latent_size - self.num_attributes).to(self.device)
                     # Noise and attributes are concatenated for the generator.
                     # The discriminator receives only the generator output initially. Attributes are multiplied in
