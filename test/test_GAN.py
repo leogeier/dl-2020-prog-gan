@@ -11,7 +11,7 @@ def test_instanciation():
 
 
 def test_training(tmp_path):
-    dataset = torch.randn((1, 3, 64, 64))
+    dataset = torch.utils.data.TensorDataset(torch.randn((1, 3, 64, 64)), torch.zeros(1,))
     gan = GAN(depth=5, latent_size=512, lr=0.001, device=torch.device('cpu'))
     gan.train(dataset, [1] * gan.depth, [1] * gan.depth, [0.5] * gan.depth,
               log_dir=tmp_path / "logs",

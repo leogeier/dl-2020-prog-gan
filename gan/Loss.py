@@ -28,6 +28,7 @@ class WassersteinLoss:
 
         epsilon = torch.rand((batch_size, 1, 1, 1)).to(fake_samples.device)
 
+        # interpolate between real and fake images by a random factor epsilon
         merged = epsilon * real_samples + ((1 - epsilon) * fake_samples)
         merged.requires_grad_(True)
 
@@ -56,5 +57,5 @@ class WassersteinLoss:
 
         return loss
 
-    def generator_loss(self, real_samples, fake_samples, current_depth, alpha):
+    def generator_loss(self, fake_samples, current_depth, alpha):
         return - torch.mean(self.discriminator(fake_samples, current_depth, alpha))

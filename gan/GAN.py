@@ -39,7 +39,7 @@ class GAN:
         self.generator = Generator(self.depth, self.latent_size).to(self.device)
         self.discriminator = Discriminator(self.depth, self.latent_size).to(self.device)
 
-        self.loss = WassersteinLoss(self.discriminator, use_gradient_penalty=True)
+        self.loss = WassersteinLoss(self.discriminator)
 
         self.discriminator_updates = 1  # updates of discriminator per generator update
         betas = (0, 0.99)  # adam hyper param
@@ -82,11 +82,9 @@ class GAN:
 
         return total_loss / self.discriminator_updates
 
-    def optimize_generator(self, noise_batch, real_batch, current_depth, alpha):
-        real_samples = self.__progressive_downsampling(real_batch, current_depth, alpha)
-
+    def optimize_generator(self, noise_batch, current_depth, alpha):
         fake_samples = self.generator(noise_batch, current_depth, alpha)
-        loss = self.loss.generator_loss(real_samples, fake_samples, current_depth, alpha)
+        loss = self.loss.generator_loss(fake_samples, current_depth, alpha)
 
         self.generator_optimizer.zero_grad()
         loss.backward()
@@ -162,7 +160,7 @@ class GAN:
                     noise = torch.randn(batch.shape[0], self.latent_size).to(self.device)
 
                     dis_loss = self.optimize_discriminator(noise, images, current_depth, alpha)
-                    gen_loss = self.optimize_generator(noise, images, current_depth, alpha)
+                    gen_loss = self.optimize_generator(noise, current_depth, alpha)
 
                     if i % log_interval == 0 or i == 1:
                         elapsed = time.time() - global_time
