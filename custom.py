@@ -5,7 +5,6 @@ import torchvision
 
 from gan.CelebA import CelebA
 from gan.ConditionalGAN import ConditionalGAN
-from gan.GAN import GAN
 
 SELECTED_ATTRIBUTE_NAMES = {4:  'Bald',        8: 'Black_Hair',  9: 'Blond_Hair',
                             11: 'Brown_Hair', 15: 'Eyeglasses', 17: 'Gray_Hair',
@@ -23,9 +22,12 @@ if __name__ == "__main__":
     appropriate_size = 4 * pow(2, depth - 1)
     transform = torchvision.transforms.Compose([
         torchvision.transforms.CenterCrop(appropriate_size),
-        torchvision.transforms.ToTensor()
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
-    dataset = CelebA(root=sys.argv[1], split="all", transform=transform, size=13948)
+    dataset = CelebA(root=sys.argv[1], split="all", transform=transform)
+    print(dataset[0])
+    assert False
 
     print("Using data with image format {}".format(dataset[0][0].shape))
 
