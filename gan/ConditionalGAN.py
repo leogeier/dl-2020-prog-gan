@@ -183,7 +183,7 @@ class ConditionalGAN:
                     alpha = total_steps / fader_point if total_steps <= fader_point else 1
 
                     images = images.to(self.device)
-                    attributes = self.__select_attributes(attributes.view(images.shape[0], -1))
+                    attributes = self.__select_attributes(attributes.view(images.shape[0], -1)).to(self.device)
 
                     noise = torch.randn(images.shape[0], self.latent_size - self.num_attributes).to(self.device)
                     # Noise and attributes are concatenated for the generator.

@@ -36,5 +36,5 @@ if __name__ == "__main__":
     fade_in_epoch_ratios = [0.5] * depth
 
     gan = ConditionalGAN(num_attributes=len(SELECTED_ATTRIBUTES), depth=depth, latent_size=latent_size,
-                         lr=learning_rate, device=torch.device('cpu'), attributes_dict=SELECTED_ATTRIBUTE_NAMES)
+                         lr=learning_rate, device=torch.device('cuda'), attributes_dict=SELECTED_ATTRIBUTE_NAMES)
     gan.train(dataset, epochs_per_depth, batch_size_per_depth, fade_in_epoch_ratios)
