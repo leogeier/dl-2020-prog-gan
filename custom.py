@@ -26,8 +26,6 @@ if __name__ == "__main__":
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
     dataset = CelebA(root=sys.argv[1], split="all", transform=transform)
-    print(dataset[0])
-    assert False
 
     print("Using data with image format {}".format(dataset[0][0].shape))
 
