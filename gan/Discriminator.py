@@ -56,6 +56,47 @@ class DisFinalBlock(torch.nn.Module):
         return y.view(-1)
 
 
+class DisConditionalFinalBlock(torch.nn.Module):
+    """
+    uses projection-based attribute passing from https://arxiv.org/pdf/1802.05637.pdf
+    """
+
+    def __init__(self, feature_size, num_attributes):
+        super(DisConditionalFinalBlock, self).__init__()
+
+        self.minibatch_std_dev = MinibatchStdDev()
+        self.layer1 = EqualizedConv2d(in_channels=feature_size + 1, out_channels=feature_size, kernel_size=(3, 3),
+                                      padding=1)
+        self.layer2 = EqualizedConv2d(in_channels=feature_size, out_channels=feature_size, kernel_size=(4, 4))
+        self.fully_connected = EqualizedConv2d(in_channels=feature_size, out_channels=1, kernel_size=(1, 1))
+        self.activation = LeakyReLU(negative_slope=0.2)
+
+        # learn one embedding vector with unit norm of length feature_size per attribute (sum over all attr in img)
+        self.attribute_embedder = torch.nn.EmbeddingBag(num_attributes, feature_size, max_norm=1, mode="sum")
+
+    def forward(self, x, attributes):
+        y = self.minibatch_std_dev(x)
+
+        y = self.activation(self.layer1(y))
+        y = self.activation(self.layer2(y))  # batch_size x num_channels x 1 x 1
+
+        # convert one-hot attributes to embedding indices
+        attribute_indices = attributes.nonzero(as_tuple=True)[1]
+        attribute_offsets = torch.cat((torch.zeros(1, dtype=torch.long), attributes.sum(dim=1)))
+        attribute_offsets = attribute_offsets.cumsum(dim=-1).narrow(0, 0, attribute_offsets.shape[0] - 1)
+
+        embedded = self.attribute_embedder(attribute_indices, attribute_offsets)  # batch_size x num_channels
+        y_squeezed = torch.squeeze(torch.squeeze(y, dim=-1), dim=-1)  # batch_size x num_channels
+
+        print(attribute_indices, attribute_offsets)
+
+        # for calculation below, see equation 3 in https://arxiv.org/pdf/1802.05637.pdf
+        projection = (embedded * y_squeezed).sum(dim=1)  # batch_size
+        print(projection.shape)
+
+        return self.fully_connected(y).view(-1) + projection
+
+
 class DisConvolutionalBlock(torch.nn.Module):
 
     def __init__(self, in_channels, out_channels):
@@ -80,17 +121,21 @@ class Discriminator(torch.nn.Module):
     def __from_rgb(out_channels):
         return EqualizedConv2d(in_channels=3, out_channels=out_channels, kernel_size=(1, 1))
 
-    def __init__(self, depth, feature_size):
+    def __init__(self, depth, feature_size, conditional=False, num_attributes=None):
         """
-            :param depth: depth of the discriminator, i.e. number of blocks (must be equal to the generator depth)
-            :param feature_size: size of the deepest features extracted (must be equal to generator latent_size)
-            """
+        :param depth: depth of the discriminator, i.e. number of blocks (must be equal to the generator depth)
+        :param feature_size: size of the deepest features extracted (must be equal to generator latent_size)
+        :param conditional: whether to use attribute labels for the images
+        :param num_attributes: number of different attributes
+        """
         super(Discriminator, self).__init__()
 
         self.depth = depth
         self.feature_size = feature_size
+        self.conditional = conditional
 
-        self.final_block = DisFinalBlock(self.feature_size)
+        self.final_block = DisConditionalFinalBlock(self.feature_size, num_attributes) if self.conditional \
+            else DisFinalBlock(self.feature_size)
         self.blocks = torch.nn.ModuleList([])
 
         self.rgb_to_features = torch.nn.ModuleList([self.__from_rgb(self.feature_size)])
@@ -110,13 +155,16 @@ class Discriminator(torch.nn.Module):
             self.blocks.append(block)
             self.rgb_to_features.append(rgb)
 
-    def forward(self, x, current_depth, alpha):
+    def forward(self, x, current_depth, alpha, attributes=None):
         """
             :param x: input to the network
             :param current_depth: current height of operation
             :param alpha: current interpolation value for fade-in
-            :return: raw prediction values
+            :param attributes: attribute labels for x if conditional
             """
+        if self.conditional:
+            assert attributes is not None, "Conditional discriminator needs attributes"
+
         if current_depth == 0:
             return self.rgb_to_features[0](x)
 
@@ -125,8 +173,9 @@ class Discriminator(torch.nn.Module):
 
         y = alpha * straight + (1 - alpha) * residual
 
-        # TODO: reverse before?
         for block in reversed(self.blocks[:current_depth - 1]):
             y = block(y)
 
-        return self.final_block(y)
+        out = self.final_block(y, attributes) if self.conditional else self.final_block(y)
+
+        return out
