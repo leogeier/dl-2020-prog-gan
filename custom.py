@@ -17,6 +17,9 @@ if __name__ == "__main__":
     if len(sys.argv) < 4:
         print("Usage: {} dataset_root epochs load_saved [start_depth] [load_depth]".format(sys.argv[0]))
         sys.exit(1)
+    elif len(sys.argv) >= 4 and len(sys.argv) < 6:
+        print("Usage: {} dataset_root epochs load_saved [start_depth] [load_depth]".format(sys.argv[0]))
+        sys.exit(1)
 
     depth = 6
     load_saved = bool(sys.argv[3])
