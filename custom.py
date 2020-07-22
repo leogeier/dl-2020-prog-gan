@@ -40,17 +40,17 @@ if __name__ == "__main__":
 
     gan = ConditionalGAN(num_attributes=len(SELECTED_ATTRIBUTES), depth=depth, latent_size=latent_size,
                          lr=learning_rate, device=torch.device('cuda'), attributes_dict=SELECTED_ATTRIBUTE_NAMES)
-    if load_saved:
+    if load_saved and int(sys.argv[4]) > 0:
         for i, model_part in enumerate([gan.generator, gan.generator_optimizer, gan.discriminator, gan.discriminator_optimizer]):
             start_depth = int(sys.argv[4])
             if i == 0:
-                filename = os.path.join("./models", "GAN_GEN_" + str(start_depth) + ".pth")
+                filename = os.path.join("./models", "GAN_GEN_" + str(start_depth - 1) + ".pth")
             elif i == 1:
-                filename = os.path.join("./models", "GAN_GEN_OPTIM_" + str(start_depth) + ".pth")
+                filename = os.path.join("./models", "GAN_GEN_OPTIM_" + str(start_depth - 1) + ".pth")
             elif i == 2:
-                filename = os.path.join("./models", "GAN_DIS_" + str(start_depth) + ".pth")
+                filename = os.path.join("./models", "GAN_DIS_" + str(start_depth - 1) + ".pth")
             elif i == 3:
-                filename = os.path.join("./models", "GAN_DIS_OPTIM_" + str(start_depth) + ".pth")
+                filename = os.path.join("./models", "GAN_DIS_OPTIM_" + str(start_depth - 1) + ".pth")
             model_part.load_state_dict(torch.load(filename, map_location=str(gan.device)))
             gan.train(dataset, epochs_per_depth, batch_size_per_depth, fade_in_epoch_ratios, start_depth, log_frequency)
     else:
