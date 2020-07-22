@@ -1,3 +1,4 @@
+import os
 import sys
 
 import torch
@@ -43,13 +44,13 @@ if __name__ == "__main__":
         for i, model_part in enumerate([gan.generator, gan.generator_optimizer, gan.discriminator, gan.discriminator_optimizer]):
             start_depth = int(sys.argv[4])
             if i == 0:
-                filename = "GAN_GEN_" + str(start_depth) + ".pth"
+                filename = os.path.join("./models", "GAN_GEN_" + str(start_depth) + ".pth")
             elif i == 1:
-                filename = "GAN_GEN_OPTIM" + str(start_depth) + ".pth"
+                filename = os.path.join("./models", "GAN_GEN_OPTIM_" + str(start_depth) + ".pth")
             elif i == 2:
-                filename = "GAN_DIS" + str(start_depth) + ".pth"
+                filename = os.path.join("./models", "GAN_DIS_" + str(start_depth) + ".pth")
             elif i == 3:
-                filename = "GAN_DIS_OPTIM" + str(start_depth) + ".pth"
+                filename = os.path.join("./models", "GAN_DIS_OPTIM_" + str(start_depth) + ".pth")
             model_part.load_state_dict(torch.load(filename, map_location=str(gan.device)))
             gan.train(dataset, epochs_per_depth, batch_size_per_depth, fade_in_epoch_ratios, start_depth, log_frequency)
     else:
