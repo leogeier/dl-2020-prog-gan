@@ -43,10 +43,10 @@ if __name__ == "__main__":
 
     gan = ConditionalGAN(num_attributes=len(SELECTED_ATTRIBUTES), depth=depth, latent_size=latent_size,
                          lr=learning_rate, device=torch.device('cuda'), attributes_dict=SELECTED_ATTRIBUTE_NAMES)
-    if load_saved:
+    if load_saved and not (int(sys.argv[4]) == 0 and sys.argv[5] == "False"):
         for i, model_part in enumerate([gan.generator, gan.generator_optimizer, gan.discriminator, gan.discriminator_optimizer]):
             start_depth = int(sys.argv[4])
-            load_depth = start_depth if sys.argv[5] == "True" else max(start_depth - 1, 0)
+            load_depth = start_depth if sys.argv[5] == "True" else start_depth - 1
             if i == 0:
                 filename = os.path.join("./models", "GAN_GEN_" + str(load_depth) + ".pth")
             elif i == 1:
