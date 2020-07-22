@@ -89,11 +89,8 @@ class DisConditionalFinalBlock(torch.nn.Module):
         embedded = self.attribute_embedder(attribute_indices, attribute_offsets)  # batch_size x num_channels
         y_squeezed = torch.squeeze(torch.squeeze(y, dim=-1), dim=-1)  # batch_size x num_channels
 
-        print(attribute_indices, attribute_offsets)
-
         # for calculation below, see equation 3 in https://arxiv.org/pdf/1802.05637.pdf
         projection = (embedded * y_squeezed).sum(dim=1)  # batch_size
-        print(projection.shape)
 
         return self.fully_connected(y).view(-1) + projection
 
