@@ -82,7 +82,8 @@ class DisConditionalFinalBlock(torch.nn.Module):
 
         # convert one-hot attributes to embedding indices
         attribute_indices = attributes.nonzero(as_tuple=True)[1]
-        attribute_offsets = torch.cat((torch.zeros(1, dtype=torch.long), attributes.sum(dim=1)))
+        single_zero = torch.zeros(1, dtype=torch.long).to(self.device)
+        attribute_offsets = torch.cat((single_zero, attributes.sum(dim=1)))
         attribute_offsets = attribute_offsets.cumsum(dim=-1).narrow(0, 0, attribute_offsets.shape[0] - 1)
 
         embedded = self.attribute_embedder(attribute_indices, attribute_offsets)  # batch_size x num_channels
