@@ -15,10 +15,10 @@ SELECTED_ATTRIBUTES = [4, 8, 9, 11, 15, 17, 20, 22, 24, 31]
 
 if __name__ == "__main__":
     if len(sys.argv) < 4:
-        print("Usage: {} dataset_root epochs load_saved [start_depth] [load_depth]".format(sys.argv[0]))
+        print("Usage: {} dataset_root epochs load_saved [start_depth] [load_same_depth]".format(sys.argv[0]))
         sys.exit(1)
-    elif len(sys.argv) >= 4 and len(sys.argv) < 6:
-        print("Usage: {} dataset_root epochs load_saved [start_depth] [load_depth]".format(sys.argv[0]))
+    elif 4 <= len(sys.argv) < 6:
+        print("Usage: {} dataset_root epochs load_saved [start_depth] [load_same_depth]".format(sys.argv[0]))
         sys.exit(1)
 
     depth = 6
@@ -43,10 +43,10 @@ if __name__ == "__main__":
 
     gan = ConditionalGAN(num_attributes=len(SELECTED_ATTRIBUTES), depth=depth, latent_size=latent_size,
                          lr=learning_rate, device=torch.device('cuda'), attributes_dict=SELECTED_ATTRIBUTE_NAMES)
-    if load_saved and int(sys.argv[5]) > 0:
+    if load_saved:
         for i, model_part in enumerate([gan.generator, gan.generator_optimizer, gan.discriminator, gan.discriminator_optimizer]):
             start_depth = int(sys.argv[4])
-            load_depth = int(sys.argv[5])
+            load_depth = start_depth if bool(sys.argv[5]) else start_depth - 1
             if i == 0:
                 filename = os.path.join("./models", "GAN_GEN_" + str(load_depth) + ".pth")
             elif i == 1:
