@@ -22,7 +22,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     depth = 6
-    load_saved = bool(sys.argv[3])
+    load_saved = sys.argv[3] == True
 
     appropriate_size = 4 * pow(2, depth - 1)
     transform = torchvision.transforms.Compose([
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     if load_saved:
         for i, model_part in enumerate([gan.generator, gan.generator_optimizer, gan.discriminator, gan.discriminator_optimizer]):
             start_depth = int(sys.argv[4])
-            load_depth = start_depth if bool(sys.argv[5]) else start_depth - 1
+            load_depth = start_depth if sys.argv[5] == "True" else start_depth - 1
             if i == 0:
                 filename = os.path.join("./models", "GAN_GEN_" + str(load_depth) + ".pth")
             elif i == 1:
