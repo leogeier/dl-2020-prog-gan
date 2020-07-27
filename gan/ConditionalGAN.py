@@ -198,7 +198,7 @@ class ConditionalGAN:
                         elapsed = time.time() - global_time
                         elapsed = str(datetime.timedelta(seconds=elapsed))
                         print("Elapsed: [%s] Batch: %d Dis. Loss: %f Gen. Loss: %f" % (elapsed, i, dis_loss, gen_loss))
-                        self.__log(log_dir, current_depth, i, dis_loss, gen_loss)
+                        self.__log(log_dir, current_depth, i, dis_loss, gen_loss, elapsed)
                         with torch.no_grad():
                             self.__save_samples(sample_dir, fixed_input, current_depth, epoch, i, alpha)
 
