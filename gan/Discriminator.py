@@ -1,5 +1,6 @@
 import torch
 from torch.nn import LeakyReLU, AvgPool2d
+from torch.nn.utils import spectral_norm
 
 from gan.EqualizedLayers import EqualizedConv2d
 
@@ -65,10 +66,10 @@ class DisConditionalFinalBlock(torch.nn.Module):
         super(DisConditionalFinalBlock, self).__init__()
 
         self.minibatch_std_dev = MinibatchStdDev()
-        self.layer1 = EqualizedConv2d(in_channels=feature_size + 1, out_channels=feature_size, kernel_size=(3, 3),
-                                      padding=1)
-        self.layer2 = EqualizedConv2d(in_channels=feature_size, out_channels=feature_size, kernel_size=(4, 4))
-        self.fully_connected = EqualizedConv2d(in_channels=feature_size, out_channels=1, kernel_size=(1, 1))
+        self.layer1 = spectral_norm(EqualizedConv2d(in_channels=feature_size + 1, out_channels=feature_size, kernel_size=(3, 3),
+                                      padding=1))
+        self.layer2 = spectral_norm(EqualizedConv2d(in_channels=feature_size, out_channels=feature_size, kernel_size=(4, 4)))
+        self.fully_connected = spectral_norm(EqualizedConv2d(in_channels=feature_size, out_channels=1, kernel_size=(1, 1)))
         self.activation = LeakyReLU(negative_slope=0.2)
 
         # learn one embedding vector with unit norm of length feature_size per attribute (sum over all attr in img)
@@ -100,8 +101,8 @@ class DisConvolutionalBlock(torch.nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DisConvolutionalBlock, self).__init__()
 
-        self.layer1 = EqualizedConv2d(in_channels, in_channels, kernel_size=(3, 3), padding=1)
-        self.layer2 = EqualizedConv2d(in_channels, out_channels, kernel_size=(3, 3), padding=1)
+        self.layer1 = spectral_norm(EqualizedConv2d(in_channels, in_channels, kernel_size=(3, 3), padding=1))
+        self.layer2 = spectral_norm(EqualizedConv2d(in_channels, out_channels, kernel_size=(3, 3), padding=1))
 
         self.downsample = AvgPool2d(2)
         self.activation = LeakyReLU(negative_slope=0.2)
