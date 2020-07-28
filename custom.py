@@ -35,7 +35,7 @@ if __name__ == "__main__":
     print("Using data with image format {}".format(dataset[0][0].shape))
 
     latent_size = 128
-    learning_rate = 0.001
+    learning_rate = 0.0002
     epochs_per_depth = [int(sys.argv[2])] * depth
     batch_size_per_depth = [16, 16, 16, 16, 16, 16, 14, 6, 3]  # according to nvidia paper
     fade_in_epoch_ratios = [0.5] * depth

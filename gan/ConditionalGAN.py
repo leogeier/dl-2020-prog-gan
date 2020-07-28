@@ -12,7 +12,7 @@ from torchvision.utils import save_image
 
 from gan.Discriminator import Discriminator
 from gan.Generator import Generator
-from gan.Loss import ConditionalWLoss
+from gan.Loss import ConditionalWLoss, ConStandardGANLoss
 
 
 class ConditionalGAN:
@@ -44,10 +44,10 @@ class ConditionalGAN:
         self.discriminator = Discriminator(self.depth, self.latent_size,
                                            conditional=True, num_attributes=num_attributes).to(self.device)
 
-        self.loss = ConditionalWLoss(self.discriminator)
+        self.loss = ConStandardGANLoss(self.discriminator)
 
         self.discriminator_updates = 1  # updates of discriminator per generator update
-        betas = (0, 0.99)  # adam hyper param
+        betas = (0.5, 0.999)  # adam hyper param
         self.generator_optimizer = Adam(self.generator.parameters(), lr=self.lr, betas=betas)
         self.discriminator_optimizer = Adam(self.discriminator.parameters(), lr=self.lr, betas=betas)
 

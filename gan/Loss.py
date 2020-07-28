@@ -1,4 +1,32 @@
 import torch
+from torch.nn import BCEWithLogitsLoss
+
+
+class ConStandardGANLoss:
+    def __init__(self, discriminator):
+        """
+        :param discriminator: discriminator module of the GAN being trained
+        """
+        assert discriminator.conditional, "Can't use conditional loss with unconditional discriminator"
+        self.discriminator = discriminator
+        self.loss_function = BCEWithLogitsLoss()
+
+    def discriminator_loss(self, attributes, real_samples, fake_samples, current_depth, alpha):
+        output_for_fakes = self.discriminator(fake_samples, current_depth, alpha, attributes)
+        output_for_real = self.discriminator(real_samples, current_depth, alpha, attributes)
+
+        all_fake_labels = torch.zeros(fake_samples.shape[0], device=real_samples.device)
+        all_real_labels = torch.ones(real_samples.shape[0], device=real_samples.device)
+        fake_loss = self.loss_function(output_for_fakes.view(-1), all_fake_labels)
+        real_loss = self.loss_function(output_for_real.view(-1), all_real_labels)
+
+        return fake_loss + real_loss
+
+    def generator_loss(self, attributes, fake_samples, current_depth, alpha):
+        output_for_fakes = self.discriminator(fake_samples, current_depth, alpha, attributes)
+        all_real_labels = torch.ones(fake_samples.shape[0], device=fake_samples.device)
+
+        return self.loss_function(output_for_fakes.view(-1), all_real_labels)
 
 
 class WassersteinLoss:
