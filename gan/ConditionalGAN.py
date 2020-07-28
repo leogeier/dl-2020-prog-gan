@@ -210,3 +210,16 @@ class ConditionalGAN:
         self.generator.eval()
         self.discriminator.eval()
         print("Training finished.")
+
+    def infer(self, num_samples, attributes, depth=-1):
+        assert attributes.shape[0] == num_samples
+        depth = depth if depth >= 0 else self.depth - 1
+        input_attributes = attributes.view(num_samples, -1).to(self.device)
+        input_images = torch.randn(num_samples, self.latent_size - self.num_attributes).to(self.device)
+        gan_input = torch.cat((input_attributes.float(), input_images), dim=-1)
+        self.__save_samples(sample_dir=".",
+                            fixed_input=gan_input,
+                            current_depth=depth,
+                            current_epoch=0,
+                            current_batch=0,
+                            alpha=1.0)
