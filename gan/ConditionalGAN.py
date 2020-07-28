@@ -159,7 +159,7 @@ class ConditionalGAN:
 
         print("Start training.")
 
-        for current_depth in range(self.depth):
+        for current_depth in range(start_depth, self.depth):
             resolution = 2 ** (current_depth + 2)
             print("Currently on depth {} with resolution ({} x {})".format(current_depth, resolution, resolution))
 
