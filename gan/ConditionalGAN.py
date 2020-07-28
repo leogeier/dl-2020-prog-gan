@@ -18,11 +18,12 @@ from gan.Loss import ConditionalWLoss
 class ConditionalGAN:
 
     @staticmethod
-    def __log(log_dir, current_depth, current_batch, dis_loss, gen_loss):
+    def __log(log_dir, current_depth, current_batch, dis_loss, gen_loss, elapsed):
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, "loss_" + str(current_depth) + ".log")
         with open(log_file, "a") as gan_log:
-            gan_log.write(str(current_batch) + "\t" + str(dis_loss) + "\t" + str(gen_loss) + "\n")
+            gan_log.write("Elapsed: [%s] Batch: %d Dis. Loss: %f Gen. Loss: %f\n" % (elapsed, current_batch, dis_loss,
+                                                                                     gen_loss))
 
     def __init__(self, num_attributes, depth, latent_size, lr, device, attributes_dict):
         """
@@ -198,7 +199,7 @@ class ConditionalGAN:
                         elapsed = time.time() - global_time
                         elapsed = str(datetime.timedelta(seconds=elapsed))
                         print("Elapsed: [%s] Batch: %d Dis. Loss: %f Gen. Loss: %f" % (elapsed, i, dis_loss, gen_loss))
-                        self.__log(log_dir, current_depth, i, dis_loss, gen_loss)
+                        self.__log(log_dir, current_depth, i, dis_loss, gen_loss, elapsed)
                         with torch.no_grad():
                             self.__save_samples(sample_dir, fixed_input, current_depth, epoch, i, alpha)
 
