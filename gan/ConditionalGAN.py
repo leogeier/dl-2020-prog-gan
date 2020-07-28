@@ -146,7 +146,7 @@ class ConditionalGAN:
         global_time = time.time()
 
         # input for consistent samples during training
-        temp_dataloader = DataLoader(dataset, num_samples, shuffle=False)
+        temp_dataloader = DataLoader(dataset, num_samples, shuffle=True)
         temp_iterator = iter(temp_dataloader)
         _, some_attributes = next(temp_iterator)
         fixed_attributes = some_attributes.view(num_samples, -1).to(self.device)
