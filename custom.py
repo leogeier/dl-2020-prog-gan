@@ -17,7 +17,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 4:
         print("Usage: {} dataset_root epochs load_saved [start_depth] [load_same_depth]".format(sys.argv[0]))
         sys.exit(1)
-    elif 4 <= len(sys.argv) < 6:
+    elif sys.argv[3] == "True" and len(sys.argv) < 6:
         print("Usage: {} dataset_root epochs load_saved [start_depth] [load_same_depth]".format(sys.argv[0]))
         sys.exit(1)
 
@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     print("Using data with image format {}".format(dataset[0][0].shape))
 
-    latent_size = 128
+    latent_size = 512
     learning_rate = 0.001
     epochs_per_depth = [int(sys.argv[2])] * depth
     batch_size_per_depth = [16, 16, 16, 16, 16, 16, 14, 6, 3]  # according to nvidia paper
