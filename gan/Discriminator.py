@@ -166,7 +166,8 @@ class Discriminator(torch.nn.Module):
             assert attributes is not None, "Conditional discriminator needs attributes"
 
         if current_depth == 0:
-            return self.rgb_to_features[0](x)
+            y = self.rgb_to_features[0](x)
+            return self.final_block(y, attributes) if self.conditional else self.final_block(y)
 
         residual = self.rgb_to_features[current_depth - 1](self.downsample(x))
         straight = self.blocks[current_depth - 1](self.rgb_to_features[current_depth](x))
