@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
     for i, model_part in enumerate(
             [gan.generator, gan.generator_optimizer, gan.discriminator, gan.discriminator_optimizer]):
-        load_depth = 5
+        load_depth = depth if depth >= 0 else gan.depth - 1
         if i == 0:
             filename = os.path.join("./models", "GAN_GEN_" + str(load_depth) + ".pth")
         elif i == 1:
