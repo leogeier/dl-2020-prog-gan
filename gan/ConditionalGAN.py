@@ -163,7 +163,7 @@ class ConditionalGAN:
 
         if scale > 1:
             samples = interpolate(samples, scale_factor=scale)
-        save_image(samples, img_file, nrow=int(sqrt(len(samples))), normalize=True, scale_each=True)
+        save_image(samples, img_file, nrow=nrow, normalize=True, scale_each=True)
 
     def __save_model(self, model_dir, current_depth):
         os.makedirs(model_dir, exist_ok=True)
