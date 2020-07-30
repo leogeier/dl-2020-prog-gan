@@ -26,7 +26,7 @@ class ConditionalGAN:
             gan_log.write("Elapsed: [%s] Batch: %d Dis. Loss: %f Gen. Loss: %f\n" % (elapsed, current_batch, dis_loss,
                                                                                      gen_loss))
 
-    def __init__(self, num_attributes, depth, latent_size, lr, device, attributes_dict, use_ema):
+    def __init__(self, num_attributes, depth, latent_size, device, lr=0.001, attributes_dict=None, use_ema=False):
         """
         :param num_attributes: number of different attribute labels of images
         :param depth: depth of the GAN, i.e. number of layers
