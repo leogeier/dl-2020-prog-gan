@@ -145,7 +145,7 @@ class ConditionalGAN:
             for i, attr in enumerate(attributes):
                 file.write(str(i) + ": " + ", ".join([str(a.item()) for a in attr]) + "\n")
 
-    def __save_samples(self, sample_dir, fixed_input, current_depth, current_epoch, current_batch, alpha):
+    def __save_samples(self, sample_dir, fixed_input, current_depth, current_epoch, current_batch, alpha, nrow=None, scale=None):
         os.makedirs(sample_dir, exist_ok=True)
         img_file = os.path.join(sample_dir,
                                 "gen_" + str(current_depth) + "_" + str(current_epoch) + "_"
@@ -154,7 +154,13 @@ class ConditionalGAN:
             samples = self.generator_ema(fixed_input, current_depth, alpha).detach()
         else:
             samples = self.generator(fixed_input, current_depth, alpha).detach()
-        scale=int(pow(2, self.depth - current_depth - 1))
+
+        if nrow is None:
+            nrow = int(sqrt(len(samples)))
+
+        if scale is None:
+            scale=int(pow(2, self.depth - current_depth - 1))
+
         if scale > 1:
             samples = interpolate(samples, scale_factor=scale)
         save_image(samples, img_file, nrow=int(sqrt(len(samples))), normalize=True, scale_each=True)
@@ -262,7 +268,7 @@ class ConditionalGAN:
             self.generator_ema.eval()
         print("Training finished.")
 
-    def infer(self, num_samples, attributes, depth=-1):
+    def infer(self, num_samples, attributes, depth=-1, nrow=None, scale=None):
         assert attributes.shape[0] == num_samples
         depth = depth if depth >= 0 else self.depth - 1
         input_attributes = attributes.view(num_samples, -1).to(self.device)
@@ -273,4 +279,6 @@ class ConditionalGAN:
                             current_depth=depth,
                             current_epoch=0,
                             current_batch=0,
-                            alpha=1.0)
+                            alpha=1.0,
+                            nrow=nrow,
+                            scale=scale)
