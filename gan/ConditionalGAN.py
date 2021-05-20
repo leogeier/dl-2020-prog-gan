@@ -1,3 +1,4 @@
+import copy
 import datetime
 import os
 import time
@@ -18,22 +19,14 @@ from gan.Loss import ConditionalWLoss
 class ConditionalGAN:
 
     @staticmethod
-    def __log(log_dir, current_depth, current_batch, dis_loss, gen_loss):
+    def __log(log_dir, current_depth, current_batch, dis_loss, gen_loss, elapsed):
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, "loss_" + str(current_depth) + ".log")
         with open(log_file, "a") as gan_log:
-            gan_log.write(str(current_batch) + "\t" + str(dis_loss) + "\t" + str(gen_loss) + "\n")
+            gan_log.write("Elapsed: [%s] Batch: %d Dis. Loss: %f Gen. Loss: %f\n" % (elapsed, current_batch, dis_loss,
+                                                                                     gen_loss))
 
-    @staticmethod
-    def __save_attribute_info(sample_dir, attributes):
-        # TODO
-        os.makedirs(sample_dir, exist_ok=True)
-        attr_file = os.path.join(sample_dir, "attributes.txt")
-        with open(attr_file, "w") as file:
-            for attr in attributes:
-                file.write(str(attr) + "\n")
-
-    def __init__(self, num_attributes, depth, latent_size, lr, device):
+    def __init__(self, num_attributes, depth, latent_size, device, lr=0.001, attributes_dict=None, use_ema=False):
         """
         :param num_attributes: number of different attribute labels of images
         :param depth: depth of the GAN, i.e. number of layers
@@ -41,15 +34,26 @@ class ConditionalGAN:
         :param lr: learning rate for the optimizer
         :param device: device to run on (cpu or gpu)
         """
+        self.attributes_dict = attributes_dict
         self.num_attributes = num_attributes
         self.depth = depth
         self.latent_size = latent_size
         self.lr = lr
         self.device = device
+        self.use_ema = use_ema
+        self.ema_decay = 0.999  # paper
 
         self.generator = Generator(self.depth, self.latent_size).to(self.device)
         self.discriminator = Discriminator(self.depth, self.latent_size,
                                            conditional=True, num_attributes=num_attributes).to(self.device)
+
+        if self.use_ema:
+            # create a shadow copy of the generator
+            self.generator_ema = copy.deepcopy(self.generator)
+
+            # initialize the gen_shadow weights equal to the
+            # weights of gen
+            self.__update_average(self.generator_ema, self.generator, beta=0)
 
         self.loss = ConditionalWLoss(self.discriminator)
 
@@ -60,6 +64,32 @@ class ConditionalGAN:
 
         # TODO: use DataParallel here?
         # TODO: use exponential moving average
+
+    @staticmethod
+    def __update_average(model_target, model_source, beta):
+        """
+        update the model_target using exponential moving averages
+        """
+
+        # utility function for toggling the gradient requirements of the models
+        def toggle_grad(model, requires_grad):
+            for p in model.parameters():
+                p.requires_grad_(requires_grad)
+
+        # turn off gradient calculation
+        toggle_grad(model_target, False)
+        toggle_grad(model_source, False)
+
+        param_dict_src = dict(model_source.named_parameters())
+
+        for p_name, p_tgt in model_target.named_parameters():
+            p_src = param_dict_src[p_name]
+            assert (p_src is not p_tgt)
+            p_tgt.copy_(beta * p_tgt + (1. - beta) * p_src)
+
+        # turn back on the gradient calculation
+        toggle_grad(model_target, True)
+        toggle_grad(model_source, True)
 
     def __progressive_downsampling(self, real_batch, current_depth, alpha):
         down_sample_factor = 2 ** (self.depth - current_depth - 1)
@@ -102,18 +132,38 @@ class ConditionalGAN:
         loss.backward()
         self.generator_optimizer.step()
 
+        if self.use_ema:
+            self.__update_average(self.generator_ema, self.generator, self.ema_decay)
+
         return loss.item()
 
-    def __save_samples(self, sample_dir, fixed_input, current_depth, current_epoch, current_batch, alpha):
+    def __save_attribute_info(self, sample_dir, attributes):
+        os.makedirs(sample_dir, exist_ok=True)
+        attr_file = os.path.join(sample_dir, "attributes.txt")
+        with open(attr_file, "w") as file:
+            file.write(", ".join([a[1] for a in sorted(self.attributes_dict.items())]) + "\n")
+            for i, attr in enumerate(attributes):
+                file.write(str(i) + ": " + ", ".join([str(a.item()) for a in attr]) + "\n")
+
+    def __save_samples(self, sample_dir, fixed_input, current_depth, current_epoch, current_batch, alpha, nrow=None, scale=None):
         os.makedirs(sample_dir, exist_ok=True)
         img_file = os.path.join(sample_dir,
                                 "gen_" + str(current_depth) + "_" + str(current_epoch) + "_"
                                 + str(current_batch) + ".png")
-        samples=self.generator(fixed_input, current_depth, alpha).detach()
-        scale=int(pow(2, self.depth - current_depth - 1))
+        if self.use_ema:
+            samples = self.generator_ema(fixed_input, current_depth, alpha).detach()
+        else:
+            samples = self.generator(fixed_input, current_depth, alpha).detach()
+
+        if nrow is None:
+            nrow = int(sqrt(len(samples)))
+
+        if scale is None:
+            scale=int(pow(2, self.depth - current_depth - 1))
+
         if scale > 1:
             samples = interpolate(samples, scale_factor=scale)
-        save_image(samples, img_file, nrow=int(sqrt(len(samples))), normalize=True, scale_each=True)
+        save_image(samples, img_file, nrow=nrow, normalize=True, scale_each=True)
 
     def __save_model(self, model_dir, current_depth):
         os.makedirs(model_dir, exist_ok=True)
@@ -125,6 +175,14 @@ class ConditionalGAN:
         torch.save(self.discriminator.state_dict(), dis_file)
         torch.save(self.generator_optimizer.state_dict(), gen_optim_file)
         torch.save(self.discriminator_optimizer.state_dict(), dis_optim_file)
+        if self.use_ema:
+            gen_ema_file = os.path.join(model_dir, "GAN_GEN_EMA_" +
+                                                str(current_depth) + ".pth")
+            torch.save(self.generator_ema.state_dict(), gen_ema_file)
+
+    def __select_attributes(self, input_attributes):
+        sel_attr_indices = torch.LongTensor([list(self.attributes_dict.keys())])
+        return input_attributes.gather(dim=1, index=sel_attr_indices.expand(input_attributes.shape[0], -1))
 
     def train(self, dataset, epochs_per_depth, batch_size_per_depth, fade_in_ratios, start_depth=0,
               log_frequency=100, num_samples=16, log_dir="./logs", sample_dir="./samples", model_dir="./models"):
@@ -142,6 +200,8 @@ class ConditionalGAN:
         """
         self.generator.train()
         self.discriminator.train()
+        if self.use_ema:
+            self.generator_ema.train()
 
         global_time = time.time()
 
@@ -149,6 +209,7 @@ class ConditionalGAN:
         temp_dataloader = DataLoader(dataset, num_samples, shuffle=True)
         temp_iterator = iter(temp_dataloader)
         _, some_attributes = next(temp_iterator)
+        some_attributes = self.__select_attributes(some_attributes)
         fixed_attributes = some_attributes.view(num_samples, -1).to(self.device)
         fixed_images = torch.randn(num_samples, self.latent_size - self.num_attributes).to(self.device)
         # concatenated for generator. using projection for discriminator. see below
@@ -178,7 +239,7 @@ class ConditionalGAN:
                     alpha = total_steps / fader_point if total_steps <= fader_point else 1
 
                     images = images.to(self.device)
-                    attributes = attributes.view(images.shape[0], -1)
+                    attributes = self.__select_attributes(attributes.view(images.shape[0], -1)).to(self.device)
 
                     noise = torch.randn(images.shape[0], self.latent_size - self.num_attributes).to(self.device)
                     # Noise and attributes are concatenated for the generator.
@@ -193,7 +254,7 @@ class ConditionalGAN:
                         elapsed = time.time() - global_time
                         elapsed = str(datetime.timedelta(seconds=elapsed))
                         print("Elapsed: [%s] Batch: %d Dis. Loss: %f Gen. Loss: %f" % (elapsed, i, dis_loss, gen_loss))
-                        self.__log(log_dir, current_depth, i, dis_loss, gen_loss)
+                        self.__log(log_dir, current_depth, i, dis_loss, gen_loss, elapsed)
                         with torch.no_grad():
                             self.__save_samples(sample_dir, fixed_input, current_depth, epoch, i, alpha)
 
@@ -203,4 +264,21 @@ class ConditionalGAN:
 
         self.generator.eval()
         self.discriminator.eval()
+        if self.use_ema:
+            self.generator_ema.eval()
         print("Training finished.")
+
+    def infer(self, num_samples, attributes, depth=-1, nrow=None, scale=None):
+        assert attributes.shape[0] == num_samples
+        depth = depth if depth >= 0 else self.depth - 1
+        input_attributes = attributes.view(num_samples, -1).to(self.device)
+        input_images = torch.randn(num_samples, self.latent_size - self.num_attributes).to(self.device)
+        gan_input = torch.cat((input_attributes.float(), input_images), dim=-1)
+        self.__save_samples(sample_dir=".",
+                            fixed_input=gan_input,
+                            current_depth=depth,
+                            current_epoch=0,
+                            current_batch=0,
+                            alpha=1.0,
+                            nrow=nrow,
+                            scale=scale)

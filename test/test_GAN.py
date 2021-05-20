@@ -25,8 +25,10 @@ def test_training(tmp_path):
 
 
 def test_conditional_training(tmp_path):
+    attribute_dict = {0: 'A1', 1: 'A2', 2: 'A3'}
     dataset = torch.utils.data.TensorDataset(torch.randn((1, 3, 64, 64)), torch.LongTensor([[0, 1, 0]]))
-    gan = ConditionalGAN(num_attributes=3, depth=5, latent_size=512, lr=0.001, device=torch.device('cpu'))
+    gan = ConditionalGAN(num_attributes=3, depth=5, latent_size=512, lr=0.001, device=torch.device('cpu'),
+                         attributes_dict=attribute_dict)
     gan.train(dataset, [1] * gan.depth, [1] * gan.depth, [0.5] * gan.depth, num_samples=1,
               log_dir=tmp_path / "logs",
               sample_dir=tmp_path / "samples",
